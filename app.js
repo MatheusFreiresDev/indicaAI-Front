@@ -1,14 +1,17 @@
 /* ==============================
    INDICAAI — APP LOGIC
-   app.js
 ============================== */
 
 const API = 'https://indicaai.onrender.com';
+
 let token = localStorage.getItem('iai_tk') || '';
 let me = {};
 let listData = [], curFilter = 'ALL';
-let rUM = null, rID = null;         // review modal: userMovieId, reviewId
-let rMovieTitle = '';               // review modal: title display
+let rUM = null, rID = null;
+let rMovieTitle = '';
+
+// rec modal state
+let recTmdbId = null;
 
 const STATUS_LABEL = {
   ASSISTIDO: '✅ Assistido',
@@ -42,29 +45,17 @@ function authTab(t, btn) {
 async function fetchMeNickname() {
   if (!token) return;
   try {
-    // Pega perfil do próprio usuário via endpoint público /users/{username}/profile
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const username = payload.username || payload.sub; // se não tiver username, usa sub
-    if (!username) throw new Error('Username não encontrado no token');
-
-    const profile = await aGet(`/users/me/profile`);
-
-    // Salva no objeto me
-    me = {
-      id: profile.id || me.id,
-      nickname: profile.username,
-      totalWatched: profile.totalWatched,
-      averageRating: profile.averageRating
-    };
-
-  } catch (e) {
-    console.warn('Não foi possível carregar perfil:', e);
+    const profile = await aGet('/users/me/profile');
+    me.nickname   = profile.username;
+    me.totalWatched  = profile.totalWatched;
+    me.averageRating = profile.averageRating;
+  } catch {
     me.nickname = me.sub || '?';
   }
 }
+
 async function doLogin() {
-  const email    = V('l-email');
-  const password = V('l-pass');
+  const email = V('l-email'), password = V('l-pass');
   if (!email || !password) return showErr('l-err', 'Preencha todos os campos');
   try {
     const r = await post('/auth/login', { email, password });
@@ -80,9 +71,7 @@ async function doLogin() {
 }
 
 async function doReg() {
-  const username = V('r-user');
-  const email    = V('r-email');
-  const password = V('r-pass');
+  const username = V('r-user'), email = V('r-email'), password = V('r-pass');
   if (!username || !email || !password) return showErr('r-err', 'Preencha todos os campos');
   try {
     await post('/auth/cadastro', { username, email, password });
@@ -103,18 +92,29 @@ function logout() {
 function showApp() {
   document.getElementById('auth-page').classList.remove('active');
   document.getElementById('app-page').classList.add('active');
-  const name = me.nickname || me.sub || '?';
-  updateSidebarName(name); // Usa a função atualizada
+  updateSidebarName(me.nickname || me.sub || '?');
 }
 
-
+function updateSidebarName(name) {
+  const initial = (name || '?')[0].toUpperCase();
+  // desktop sidebar
+  const sbAv = document.getElementById('sb-av');
+  const sbUn = document.getElementById('sb-uname');
+  if (sbAv) sbAv.textContent = initial;
+  if (sbUn) sbUn.textContent = name;
+  // mobile top bar avatar
+  const mobAv = document.getElementById('mob-av');
+  if (mobAv) mobAv.textContent = initial;
+}
 
 // ==============================
 // NAVIGATION
 // ==============================
 function goTo(sec, btn) {
-  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sb-item, .mob-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`.sb-item[onclick*="'${sec}'"], .mob-item[onclick*="'${sec}'"]`).forEach(b => b.classList.add('active'));
   btn.classList.add('active');
+
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('s-' + sec).classList.add('active');
 
@@ -125,7 +125,7 @@ function goTo(sec, btn) {
 }
 
 // ==============================
-// FEED (homepage)
+// FEED
 // ==============================
 async function loadFeed() {
   const el = document.getElementById('r-feed');
@@ -136,17 +136,10 @@ async function loadFeed() {
       el.innerHTML = emptyHTML('🎬', 'Nenhuma review ainda. Seja o primeiro!');
       return;
     }
-
-    // Enrich reviews with movie data
     const enriched = await Promise.all(reviews.map(async r => {
-      try {
-        const movie = await aGet(`/movies/${r.movieId}`);
-        return { ...r, movie };
-      } catch {
-        return { ...r, movie: null };
-      }
+      try { return { ...r, movie: await aGet(`/movies/${r.movieId}`) }; }
+      catch { return { ...r, movie: null }; }
     }));
-
     el.innerHTML = `<div class="feed-grid">${enriched.map(feedCard).join('')}</div>`;
   } catch (e) {
     el.innerHTML = emptyHTML('❌', e.message || 'Erro ao carregar feed');
@@ -156,21 +149,16 @@ async function loadFeed() {
 function feedCard(r) {
   const m = r.movie;
   const posterUrl = m?.poster_path ? `https://image.tmdb.org/t/p/w300${m.poster_path}` : null;
-  const bannerUrl = m?.backdrop_path ? `https://image.tmdb.org/t/p/w780${m.backdrop_path}` : null;
-  const username = r.username || 'usuário';
-  const initial  = username[0].toUpperCase();
-  const title    = m?.title || `Filme #${r.movieId}`;
-
+  const username  = r.username || 'usuário';
+  const title     = m?.title || `Filme #${r.movieId}`;
   const posterImg = posterUrl
     ? `<img src="${posterUrl}" alt="" loading="lazy">`
     : `<div class="fc-poster-ph">🎬</div>`;
 
   return `<div class="feed-card">
     <div class="fc-header">
-      <div class="fc-av">${initial}</div>
-      <div>
-        <div class="fc-username" onclick="openPubModalByUsername('${esc(username)}')">${esc(username)}</div>
-      </div>
+      <div class="fc-av">${username[0].toUpperCase()}</div>
+      <div><div class="fc-username" onclick="openPubModalByUsername('${esc(username)}')">${esc(username)}</div></div>
       <div class="fc-nota">⭐ ${r.nota}/10</div>
     </div>
     <div class="fc-body">
@@ -179,30 +167,23 @@ function feedCard(r) {
         <div class="fc-movie-title">${esc(title)}</div>
         ${r.descricao
           ? `<div class="fc-desc">"${esc(r.descricao)}"</div>`
-          : `<div class="fc-no-desc">Sem texto de review</div>`
-        }
+          : `<div class="fc-no-desc">Sem texto de review</div>`}
       </div>
     </div>
   </div>`;
 }
 
 // ==============================
-// USER SEARCH (feed bar)
+// USER SEARCH
 // ==============================
 let userSearchTimeout = null;
 
 async function searchUser(val) {
   const res = document.getElementById('user-search-results');
   clearTimeout(userSearchTimeout);
-
-  if (!val || val.trim().length < 2) {
-    res.classList.remove('open');
-    return;
-  }
-
+  if (!val || val.trim().length < 2) { res.classList.remove('open'); return; }
   userSearchTimeout = setTimeout(async () => {
     try {
-      // Try fetching profile directly by username
       const profile = await aGet(`/users/${encodeURIComponent(val.trim())}/profile`);
       if (profile && profile.username) {
         res.innerHTML = `
@@ -225,12 +206,10 @@ async function searchUser(val) {
   }, 350);
 }
 
-// Close user search on outside click
 document.addEventListener('click', e => {
   const wrap = document.getElementById('user-search-results');
-  if (wrap && !wrap.contains(e.target) && !e.target.closest('.feed-search-box')) {
+  if (wrap && !wrap.contains(e.target) && !e.target.closest('.feed-search-box'))
     wrap.classList.remove('open');
-  }
 });
 
 // ==============================
@@ -248,13 +227,13 @@ async function openPubModalByUsername(username) {
       aGet(`/users/${encodeURIComponent(username)}/reviews`),
     ]);
 
-    // Enrich reviews with movie data
     const enriched = await Promise.all((reviews || []).map(async r => {
       try { return { ...r, movie: await aGet(`/movies/${r.movieId}`) }; }
       catch { return { ...r, movie: null }; }
     }));
 
     body.innerHTML = buildPubProfile(prof, enriched);
+
   } catch (e) {
     body.innerHTML = emptyHTML('❌', 'Erro: ' + (e.message || 'Perfil não encontrado'));
   }
@@ -275,17 +254,15 @@ function buildPubProfile(prof, reviews) {
       <div class="stat-card"><div class="stat-val sv-t">${reviews.length}</div><div class="stat-label">Reviews</div></div>
     </div>
     ${reviews.length ? `
-      <div style="font-family:'Syne',sans-serif;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:1rem">Reviews</div>
-      <div class="reviews-grid">${reviews.map(r => buildReviewCard(r, false)).join('')}</div>
-    ` : ''}
-  `;
+      <div style="font-family:'Syne',sans-serif;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:1rem">Reviews</div>
+      <div class="reviews-grid">${reviews.map(r => buildReviewCard(r, false)).join('')}</div>` : ''}`;
 }
 
 function closePubModal(e, force) {
-  if (force || e?.target === document.getElementById('pub-modal-ov')) {
+  if (force || e?.target === document.getElementById('pub-modal-ov'))
     document.getElementById('pub-modal-ov').classList.remove('open');
-  }
 }
+
 
 // ==============================
 // SEARCH (movies)
@@ -308,11 +285,14 @@ async function doSearch() {
 }
 
 function movieCard(m) {
-  const tid  = m.tmdbId;
-  const md   = JSON.stringify(m).replace(/"/g, '&quot;');
-  const img  = m.poster_path
+  const tid = m.tmdbId;
+  const md  = JSON.stringify(m).replace(/"/g, '&quot;');
+  const img = m.poster_path
     ? `<img src="https://image.tmdb.org/t/p/w300${m.poster_path}" loading="lazy" alt="">`
     : `<div class="mcard-no-img">🎬</div>`;
+
+  // encode title for safe inline onclick
+  const safeTitle = (m.title || '').replace(/'/g, "\\'");
 
   return `<div class="mcard" onclick='openDM(${md})'>
     <div class="mcard-poster">
@@ -324,14 +304,43 @@ function movieCard(m) {
           <button class="ovbtn" onclick="event.stopPropagation();addList(${tid},'ASSISTINDO')">▶ Assistindo</button>
           <button class="ovbtn" onclick="event.stopPropagation();addList(${tid},'ASSISTIDO')">✅ Já Assisti</button>
           <button class="ovbtn" onclick="event.stopPropagation();addList(${tid},'ABANDONEI')">✕ Abandonei</button>
+          <button class="ovbtn ovbtn-rev" onclick="event.stopPropagation();quickReviewFromSearch(${tid},'${safeTitle}')">✍️ Review</button>
         </div>
       </div>
     </div>
     <div class="mcard-info">
       <div class="mcard-title">${esc(m.title)}</div>
-      ${m.release_date ? `<div class="mcard-year">${m.release_date.slice(0, 4)}</div>` : ''}
+      ${m.release_date ? `<div class="mcard-year">${m.release_date.slice(0,4)}</div>` : ''}
     </div>
   </div>`;
+}
+
+// Add as ASSISTIDO then open review modal — flow triggered from search card
+async function quickReviewFromSearch(tmdbId, movieTitle) {
+  toast('Adicionando como assistido...', 'ok');
+  try {
+    const res = await aPost('/user-movies', { tmdbId, status: 'ASSISTIDO' });
+    // res should have the userMovie id
+    const umid = res?.id || res?.userMovieId || res;
+    if (!umid || typeof umid !== 'number') throw new Error('ID inválido retornado pelo servidor');
+    openRM(umid, movieTitle);
+  } catch (e) {
+    // If already in list, try to find it and open review
+    toast('Buscando item da lista...', 'ok');
+    try {
+      if (!listData.length) listData = await aGet('/user-movies/me');
+      const found = listData.find(i => i.tmdbId === tmdbId || i.movieId === tmdbId);
+      if (found) {
+        // Ensure status is ASSISTIDO
+        if (found.status !== 'ASSISTIDO') await aPatch(`/user-movies/${found.id}`, { status: 'ASSISTIDO' });
+        openRM(found.id, movieTitle);
+      } else {
+        toast(e.message || 'Erro ao adicionar', 'fail');
+      }
+    } catch (e2) {
+      toast(e2.message || 'Erro', 'fail');
+    }
+  }
 }
 
 // Movie detail modal
@@ -343,9 +352,8 @@ function openDM(m) {
   document.getElementById('dm-poster').innerHTML = m.poster_path
     ? `<img src="https://image.tmdb.org/t/p/w400${m.poster_path}" alt="">`
     : `<div class="mm-poster-ph">🎬</div>`;
-
   document.getElementById('dm-title').textContent    = m.title;
-  document.getElementById('dm-meta').textContent     = m.release_date ? '📅 ' + m.release_date.slice(0, 4) : '';
+  document.getElementById('dm-meta').textContent     = m.release_date ? '📅 ' + m.release_date.slice(0,4) : '';
   document.getElementById('dm-overview').textContent = m.overview || 'Sem descrição disponível.';
   document.getElementById('detail-ov').classList.add('open');
 }
@@ -358,6 +366,13 @@ function closeDM(e, force) {
 async function addListFromModal(status) {
   if (!window._dmId) return toast('Filme sem ID válido', 'fail');
   await addList(window._dmId, status);
+}
+
+// Add as ASSISTIDO + open review from movie detail modal
+async function addAndReviewFromModal() {
+  if (!window._dmId) return toast('Filme sem ID válido', 'fail');
+  document.getElementById('detail-ov').classList.remove('open');
+  await quickReviewFromSearch(window._dmId, window._dmTitle || '');
 }
 
 async function addList(tmdbId, status) {
@@ -386,20 +401,14 @@ async function loadList() {
 }
 
 function renderList() {
-  const el = document.getElementById('r-list');
+  const el   = document.getElementById('r-list');
   const data = curFilter === 'ALL' ? listData : listData.filter(i => i.status === curFilter);
-  if (!data.length) {
-    el.innerHTML = emptyHTML('🎬', 'Nenhum filme aqui. Busque e adicione filmes!');
-    return;
-  }
+  if (!data.length) { el.innerHTML = emptyHTML('🎬', 'Nenhum filme aqui. Busque e adicione filmes!'); return; }
   el.innerHTML = `<div class="list-grid">${data.map(listCard).join('')}</div>`;
 }
 
 function listCard(i) {
-  const img = i.posterPath
-    ? `<img src="https://image.tmdb.org/t/p/w92${i.posterPath}" alt="">`
-    : '🎬';
-
+  const img = i.posterPath ? `<img src="https://image.tmdb.org/t/p/w92${i.posterPath}" alt="">` : '🎬';
   return `<div class="lcard">
     <div class="lcard-poster">${img}</div>
     <div class="lcard-info">
@@ -407,14 +416,12 @@ function listCard(i) {
       <div class="status-badge s-${i.status}">${STATUS_LABEL[i.status] || i.status}</div>
       <div class="lcard-actions">
         <select class="status-sel" onchange="updStatus(${i.id},this.value)">
-          <option value="QUERO_VER"  ${i.status === 'QUERO_VER'  ? 'selected' : ''}>🎬 Quero Ver</option>
-          <option value="ASSISTINDO" ${i.status === 'ASSISTINDO' ? 'selected' : ''}>▶ Assistindo</option>
-          <option value="ASSISTIDO"  ${i.status === 'ASSISTIDO'  ? 'selected' : ''}>✅ Assistido</option>
-          <option value="ABANDONEI"  ${i.status === 'ABANDONEI'  ? 'selected' : ''}>✕ Abandonei</option>
+          <option value="QUERO_VER"  ${i.status==='QUERO_VER' ?'selected':''}>🎬 Quero Ver</option>
+          <option value="ASSISTINDO" ${i.status==='ASSISTINDO'?'selected':''}>▶ Assistindo</option>
+          <option value="ASSISTIDO"  ${i.status==='ASSISTIDO' ?'selected':''}>✅ Assistido</option>
+          <option value="ABANDONEI"  ${i.status==='ABANDONEI' ?'selected':''}>✕ Abandonei</option>
         </select>
-        ${i.status === 'ASSISTIDO'
-          ? `<button class="btn-review-sm" onclick="openRM(${i.id},'${esc(i.movieTitle || '')}')">✍️ Review</button>`
-          : ''}
+        ${i.status==='ASSISTIDO' ? `<button class="btn-review-sm" onclick="openRM(${i.id},'${esc(i.movieTitle||'')}')">✍️ Review</button>` : ''}
         <button class="btn-del-sm" onclick="delList(${i.id})">🗑</button>
       </div>
     </div>
@@ -429,24 +436,15 @@ function filt(s, btn) {
 }
 
 async function updStatus(id, status) {
-  try {
-    await aPatch(`/user-movies/${id}`, { status });
-    toast('Status atualizado!', 'ok');
-    loadList();
-  } catch (e) {
-    toast(e.message || 'Erro', 'fail');
-  }
+  try { await aPatch(`/user-movies/${id}`, { status }); toast('Status atualizado!','ok'); loadList(); }
+  catch (e) { toast(e.message||'Erro','fail'); }
 }
 
 async function delList(id) {
-  try {
-    await aDel(`/user-movies/${id}`);
-    toast('Removido!', 'ok');
-    loadList();
-  } catch (e) {
-    toast(e.message || 'Erro', 'fail');
-  }
+  try { await aDel(`/user-movies/${id}`); toast('Removido!','ok'); loadList(); }
+  catch (e) { toast(e.message||'Erro','fail'); }
 }
+
 // ==============================
 // REVIEWS
 // ==============================
@@ -454,22 +452,15 @@ async function loadReviews() {
   const el = document.getElementById('r-reviews');
   el.innerHTML = loadHTML('Carregando reviews...');
   try {
-    const reviews = await aGet('/reviews/me'); // espera ReviewResponse[]
+    const reviews = await aGet('/reviews/me');
     if (!reviews.length) {
       el.innerHTML = emptyHTML('⭐', 'Nenhuma review ainda. Marque filmes como assistidos e escreva sua opinião!');
       return;
     }
-
-    // Enrich with movie data
     const enriched = await Promise.all(reviews.map(async r => {
-      try { 
-        const movie = await aGet(`/movies/${r.movieId}`); // garante que movieId existe
-        return { ...r, movie }; 
-      } catch { 
-        return { ...r, movie: null }; 
-      }
+      try { return { ...r, movie: await aGet(`/movies/${r.movieId}`) }; }
+      catch { return { ...r, movie: null }; }
     }));
-
     el.innerHTML = `<div class="reviews-grid">${enriched.map(r => buildReviewCard(r, true)).join('')}</div>`;
   } catch (e) {
     el.innerHTML = emptyHTML('❌', e.message);
@@ -477,16 +468,15 @@ async function loadReviews() {
 }
 
 function buildReviewCard(r, editable) {
-  const m = r.movie;
+  const m        = r.movie;
   const title    = m?.title || `Filme #${r.movieId}`;
-  const poster   = m?.poster_path   ? `https://image.tmdb.org/t/p/w92${m.poster_path}`     : null;
-  const backdrop = m?.backdrop_path ? `https://image.tmdb.org/t/p/w780${m.backdrop_path}`  : null;
+  const poster   = m?.poster_path   ? `https://image.tmdb.org/t/p/w92${m.poster_path}`    : null;
+  const backdrop = m?.backdrop_path ? `https://image.tmdb.org/t/p/w780${m.backdrop_path}` : null;
   const desc     = (r.descricao || '').replace(/'/g, "\\'");
 
   const bannerInner = backdrop
     ? `<img src="${backdrop}" alt="" loading="lazy">`
     : `<div class="rcard-banner-ph">🎬</div>`;
-
   const thumbInner = poster
     ? `<img src="${poster}" alt="">`
     : `<div class="rcard-thumb-ph">🎬</div>`;
@@ -499,9 +489,7 @@ function buildReviewCard(r, editable) {
     <div class="rcard-body">
       <div class="rcard-top">
         <div class="rcard-thumb">${thumbInner}</div>
-        <div class="rcard-meta">
-          <div class="rcard-movie-title">${esc(title)}</div>
-        </div>
+        <div class="rcard-meta"><div class="rcard-movie-title">${esc(title)}</div></div>
       </div>
       ${r.descricao ? `<div class="rcard-desc">"${esc(r.descricao)}"</div>` : ''}
       ${editable ? `
@@ -513,14 +501,13 @@ function buildReviewCard(r, editable) {
   </div>`;
 }
 
-// Review modal
 function openRM(umid, movieTitle) {
   rUM = umid; rID = null;
   rMovieTitle = movieTitle || '';
-  document.getElementById('rev-ttl').textContent       = 'Nova Review';
-  document.getElementById('rev-nota-range').value      = 7;
-  document.getElementById('rev-nota-val').textContent  = '7';
-  document.getElementById('rev-desc').value            = '';
+  document.getElementById('rev-ttl').textContent      = 'Nova Review';
+  document.getElementById('rev-nota-range').value     = 7;
+  document.getElementById('rev-nota-val').textContent = '7';
+  document.getElementById('rev-desc').value           = '';
   document.getElementById('rm-movie-info').textContent = rMovieTitle;
   document.getElementById('rev-ov').classList.add('open');
 }
@@ -528,17 +515,15 @@ function openRM(umid, movieTitle) {
 function openEditRM(id, nota, desc, movieTitle) {
   rID = id; rUM = null;
   rMovieTitle = movieTitle || '';
-  document.getElementById('rev-ttl').textContent       = 'Editar Review';
-  document.getElementById('rev-nota-range').value      = nota;
-  document.getElementById('rev-nota-val').textContent  = nota;
-  document.getElementById('rev-desc').value            = desc;
+  document.getElementById('rev-ttl').textContent      = 'Editar Review';
+  document.getElementById('rev-nota-range').value     = nota;
+  document.getElementById('rev-nota-val').textContent = nota;
+  document.getElementById('rev-desc').value           = desc;
   document.getElementById('rm-movie-info').textContent = rMovieTitle;
   document.getElementById('rev-ov').classList.add('open');
 }
 
-function closeRM() {
-  document.getElementById('rev-ov').classList.remove('open');
-}
+function closeRM() { document.getElementById('rev-ov').classList.remove('open'); }
 
 async function saveRev() {
   const nota      = parseInt(document.getElementById('rev-nota-range').value);
@@ -546,7 +531,7 @@ async function saveRev() {
   if (isNaN(nota) || nota < 0 || nota > 10) return toast('Nota entre 0 e 10', 'fail');
   try {
     if (rID) await aPatch(`/reviews/${rID}`, { nota, descricao });
-    else     await aPost(`/reviews/${rUM}`, { nota, descricao }); // envia para o endpoint /reviews/{userMovieId}
+    else     await aPost(`/reviews/${rUM}`, { nota, descricao });
     closeRM();
     toast('Review salva! ⭐', 'ok');
     loadReviews();
@@ -556,13 +541,8 @@ async function saveRev() {
 }
 
 async function delRev(id) {
-  try {
-    await aDel(`/reviews/${id}`);
-    toast('Review removida!', 'ok');
-    loadReviews();
-  } catch (e) {
-    toast(e.message || 'Erro', 'fail');
-  }
+  try { await aDel(`/reviews/${id}`); toast('Review removida!','ok'); loadReviews(); }
+  catch (e) { toast(e.message||'Erro','fail'); }
 }
 
 // ==============================
@@ -588,14 +568,56 @@ function recCard(r) {
     ? `<img src="https://image.tmdb.org/t/p/w154${r.posterPath}" alt="" loading="lazy">`
     : `<div class="rec-ph">🎬</div>`;
 
-  return `<div class="reccard">
+  // store data on element via data attribute
+  const data = JSON.stringify({ tmdbId: r.tmdbId, title: r.title, reason: r.reason, posterPath: r.posterPath }).replace(/"/g,'&quot;');
+
+  return `<div class="reccard" onclick='openRecAdd(${data})'>
     <div class="rec-poster">${img}</div>
     <div class="rec-content">
       <div class="rec-ai-badge">✨ IA</div>
       <div class="rec-title">${esc(r.title || 'Filme')}</div>
       <div class="rec-reason">${esc(r.reason || '')}</div>
+      <div class="rec-tap-hint">Toque para adicionar à lista</div>
     </div>
   </div>`;
+}
+
+// Rec add modal
+function openRecAdd(r) {
+  if (typeof r === 'string') r = JSON.parse(r);
+  recTmdbId = r.tmdbId;
+  window._recTitle = r.title;
+
+  const posterEl = document.getElementById('ra-poster');
+  posterEl.innerHTML = r.posterPath
+    ? `<img src="https://image.tmdb.org/t/p/w300${r.posterPath}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`
+    : `<div class="rec-add-poster-ph">🎬</div>`;
+
+  document.getElementById('ra-title').textContent  = r.title  || 'Filme';
+  document.getElementById('ra-reason').textContent = r.reason || '';
+  document.getElementById('rec-add-ov').classList.add('open');
+}
+
+function closeRecAdd(e, force) {
+  if (force || e?.target === document.getElementById('rec-add-ov'))
+    document.getElementById('rec-add-ov').classList.remove('open');
+}
+
+async function addRecToList(status) {
+  if (!recTmdbId) return toast('ID inválido', 'fail');
+  try {
+    await aPost('/user-movies', { tmdbId: recTmdbId, status });
+    toast(`Adicionado: ${STATUS_LABEL[status]}`, 'ok');
+    closeRecAdd(null, true);
+  } catch (e) {
+    toast(e.message || 'Erro', 'fail');
+  }
+}
+
+async function addRecAndReview() {
+  if (!recTmdbId) return toast('ID inválido', 'fail');
+  closeRecAdd(null, true);
+  await quickReviewFromSearch(recTmdbId, window._recTitle || '');
 }
 
 // ==============================
@@ -604,108 +626,87 @@ function recCard(r) {
 async function loadProfile() {
   const el = document.getElementById('r-profile');
   el.innerHTML = loadHTML('Carregando perfil...');
-
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const username = payload.username || payload.sub;
-    if (!username) throw new Error('Username não encontrado no token');
-
-    const profile = await aGet(`/users/me/profile`);
-
-    // Se não tiver nickname, usa o username
-    const displayName = profile.nickname || profile.username || '?';
-
+    const profile = await aGet('/users/me/profile');
+    const displayName = profile.username || '?';
+    updateSidebarName(displayName);
     el.innerHTML = `
       <div class="profile-hero">
         <div class="prof-av">${displayName[0].toUpperCase()}</div>
         <div>
-          <div class="prof-name">${esc(profile.username)}</div>
+          <div class="prof-name">${esc(displayName)}</div>
           <div class="prof-tag">Meu perfil · indicaAI</div>
         </div>
       </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-val sv-r">${profile.totalWatched || 0}</div><div class="stat-label">Assistidos</div></div>
-        <div class="stat-card"><div class="stat-val sv-a">${profile.averageRating?.toFixed(1) || '—'}</div><div class="stat-label">Nota Média</div></div>
-      </div>
-    `;
-
-    updateSidebarName(displayName);
-
+        <div class="stat-card"><div class="stat-val sv-a">${profile.averageRating ? profile.averageRating.toFixed(1) : '—'}</div><div class="stat-label">Nota Média</div></div>
+        <div class="stat-card"><div class="stat-val sv-t">${profile.totalReviews || 0}</div><div class="stat-label">Reviews</div></div>
+      </div>`;
   } catch (e) {
-    console.error(e);
-    el.innerHTML = `<div>Erro ao carregar perfil</div>`;
+    const name = me.nickname || me.sub || '?';
+    el.innerHTML = `
+      <div class="profile-hero">
+        <div class="prof-av">${name[0].toUpperCase()}</div>
+        <div><div class="prof-name">${esc(name)}</div><div class="prof-tag">Meu perfil · indicaAI</div></div>
+      </div>`;
   }
 }
-// Função auxiliar para atualizar sidebar
-function updateSidebarName(name) {
-  const nick = me.nickname || name || '?';
-  document.getElementById('sb-av').textContent = nick[0].toUpperCase();
-  document.getElementById('sb-uname').textContent = nick;
+
+async function loadPub() {
+  const username = document.getElementById('pub-username').value.trim();
+  if (!username) return;
+  await openPubModalByUsername(username);
 }
+
 // ==============================
 // HTTP HELPERS
 // ==============================
 async function post(path, body) {
-  const r = await fetch(API + path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const r = await fetch(API + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
   const text = await r.text();
   if (!r.ok) throw new Error(text);
   try { return JSON.parse(text); } catch { return text; }
 }
 
 async function aGet(path) {
-  const r = await fetch(API + path, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const r = await fetch(API + path, { headers:{ Authorization:`Bearer ${token}` } });
   const text = await r.text();
   if (!r.ok) throw new Error(text);
   try { return JSON.parse(text); } catch { return text; }
 }
 
 async function aPost(path, body) {
-  const r = await fetch(API + path, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const r = await fetch(API + path, { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
   const text = await r.text();
   if (!r.ok) throw new Error(text);
   try { return JSON.parse(text); } catch { return text; }
 }
 
 async function aPatch(path, body) {
-  const r = await fetch(API + path, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const r = await fetch(API + path, { method:'PATCH', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
   const text = await r.text();
   if (!r.ok) throw new Error(text);
   try { return JSON.parse(text); } catch { return text; }
 }
 
 async function aDel(path) {
-  const r = await fetch(API + path, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const r = await fetch(API + path, { method:'DELETE', headers:{ Authorization:`Bearer ${token}` } });
   if (!r.ok) throw new Error(await r.text());
 }
 
 // ==============================
 // UI HELPERS
 // ==============================
-function V(id)  { return document.getElementById(id).value.trim(); }
+function V(id) { return document.getElementById(id).value.trim(); }
+
 function esc(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
 function loadHTML(msg) {
@@ -718,14 +719,13 @@ function emptyHTML(icon, msg) {
 
 function showErr(id, msg) {
   const el = document.getElementById(id);
-  el.textContent   = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => { el.style.display='none'; }, 4000);
 }
 
-function toast(msg, type = 'ok') {
+function toast(msg, type='ok') {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className   = `toast ${type} show`;
+  el.className = `toast ${type} show`;
   setTimeout(() => el.classList.remove('show'), 3000);
 }

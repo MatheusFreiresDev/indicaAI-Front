@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>indicaAI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -20,17 +20,14 @@
   </div>
   <div class="auth-wrap">
     <div class="auth-brand">
-      <div class="brand-mark">
-        <span class="brand-icon">▶</span>
-      </div>
+      <div class="brand-mark"><span class="brand-icon">▶</span></div>
       <h1 class="brand-name">indica<span>AI</span></h1>
       <p class="brand-tagline">Seu universo cinematográfico</p>
     </div>
     <div class="auth-card">
       <div class="auth-tabs">
-        <button class="atab active" data-tab="login" onclick="authTab('login',this)">Entrar</button>
-        <button class="atab" data-tab="reg" onclick="authTab('reg',this)">Cadastrar</button>
-        <div class="atab-slider"></div>
+        <button class="atab active" onclick="authTab('login',this)">Entrar</button>
+        <button class="atab" onclick="authTab('reg',this)">Cadastrar</button>
       </div>
       <div id="f-login" class="auth-form">
         <div class="field-group">
@@ -73,48 +70,57 @@
 <!-- APP PAGE -->
 <div id="app-page" class="page">
 
-  <!-- SIDEBAR NAV -->
+  <!-- SIDEBAR (desktop only) -->
   <aside class="sidebar">
     <div class="sb-brand">
       <span class="sb-icon">▶</span>
       <span class="sb-name">indica<em>AI</em></span>
     </div>
     <nav class="sb-nav">
-      <button class="sb-item active" onclick="goTo('feed',this)" data-sec="feed">
+      <button class="sb-item active" onclick="goTo('feed',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         <span>Feed</span>
       </button>
-      <button class="sb-item" onclick="goTo('search',this)" data-sec="search">
+      <button class="sb-item" onclick="goTo('search',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <span>Buscar</span>
       </button>
-      <button class="sb-item" onclick="goTo('list',this)" data-sec="list">
+      <button class="sb-item" onclick="goTo('list',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
         <span>Minha Lista</span>
       </button>
-      <button class="sb-item" onclick="goTo('reviews',this)" data-sec="reviews">
+      <button class="sb-item" onclick="goTo('reviews',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span>Reviews</span>
       </button>
-      <button class="sb-item" onclick="goTo('recs',this)" data-sec="recs">
+      <button class="sb-item" onclick="goTo('recs',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12 22 2"/><path d="M17 2h5v5"/></svg>
         <span>Recomendações</span>
       </button>
-      <button class="sb-item" onclick="goTo('profile',this)" data-sec="profile">
+      <button class="sb-item" onclick="goTo('profile',this)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         <span>Perfil</span>
       </button>
     </nav>
     <div class="sb-footer">
-      <div class="sb-user">
-        <div class="sb-av" id="sb-av"></div>
-        <span class="sb-uname" id="sb-uname"></span>
-      </div>
+      <div class="sb-av" id="sb-av"></div>
+      <span class="sb-uname" id="sb-uname"></span>
       <button class="sb-logout" onclick="logout()" title="Sair">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
   </aside>
+
+  <!-- MOBILE TOP BAR -->
+  <div class="mobile-topbar">
+    <div class="mob-brand">indica<em>AI</em></div>
+    <div class="mob-right">
+      <div class="sb-av" id="mob-av"></div>
+      <button class="sb-logout" onclick="logout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
 
   <!-- MAIN CONTENT -->
   <main class="app-main">
@@ -129,7 +135,7 @@
         <div class="feed-search-wrap">
           <div class="feed-search-box">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="feed-search-input" placeholder="Pesquisar usuário..." oninput="searchUser(this.value)">
+            <input type="text" id="feed-search-input" placeholder="Pesquisar usuário..." oninput="searchUser(this.value)" autocomplete="off">
           </div>
           <div class="user-search-results" id="user-search-results"></div>
         </div>
@@ -211,19 +217,52 @@
         </div>
       </div>
       <div id="r-profile"></div>
-
       <div class="pub-search-section">
         <h3 class="pub-search-title">Buscar Perfil Público</h3>
+        <div class="pub-search-bar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <input type="text" id="pub-username" placeholder="@username">
+          <button class="btn-pub-search" onclick="loadPub()">Ver</button>
+        </div>
         <div id="r-pub"></div>
       </div>
     </div>
 
   </main>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mob-nav">
+    <button class="mob-item active" onclick="goTo('feed',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Feed</span>
+    </button>
+    <button class="mob-item" onclick="goTo('search',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <span>Buscar</span>
+    </button>
+    <button class="mob-item" onclick="goTo('list',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
+      <span>Lista</span>
+    </button>
+    <button class="mob-item" onclick="goTo('reviews',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span>Reviews</span>
+    </button>
+    <button class="mob-item" onclick="goTo('recs',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12 22 2"/><path d="M17 2h5v5"/></svg>
+      <span>IA</span>
+    </button>
+    <button class="mob-item" onclick="goTo('profile',this)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span>Perfil</span>
+    </button>
+  </nav>
+
 </div>
 
 <!-- MOVIE DETAIL MODAL -->
 <div class="modal-overlay" id="detail-ov" onclick="closeDM(event)">
-  <div class="movie-modal" id="detail-modal">
+  <div class="movie-modal">
     <button class="modal-close" onclick="closeDM(null,true)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
@@ -238,6 +277,7 @@
         <button class="mm-btn" onclick="addListFromModal('ASSISTINDO')">▶ Assistindo</button>
         <button class="mm-btn mm-btn-primary" onclick="addListFromModal('ASSISTIDO')">✅ Já Assisti</button>
         <button class="mm-btn" onclick="addListFromModal('ABANDONEI')">✕ Abandonei</button>
+        <button class="mm-btn mm-btn-review" onclick="addAndReviewFromModal()">✍️ Já vi — fazer review</button>
       </div>
     </div>
   </div>
@@ -248,7 +288,7 @@
   <div class="review-modal">
     <div class="rm-header">
       <div class="rm-title" id="rev-ttl">Nova Review</div>
-      <button class="modal-close" onclick="closeRM()">
+      <button class="modal-close-inline" onclick="closeRM()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -270,7 +310,7 @@
 
 <!-- PUBLIC PROFILE MODAL -->
 <div class="modal-overlay" id="pub-modal-ov" onclick="closePubModal(event)">
-  <div class="pub-modal" id="pub-modal-content">
+  <div class="pub-modal">
     <button class="modal-close" onclick="closePubModal(null,true)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
@@ -278,8 +318,32 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- REC ADD MODAL -->
+<div class="modal-overlay" id="rec-add-ov" onclick="closeRecAdd(event)">
+  <div class="rec-add-modal">
+    <button class="modal-close" onclick="closeRecAdd(null,true)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="rec-add-inner">
+      <div class="rec-add-poster" id="ra-poster"></div>
+      <div class="rec-add-content">
+        <div class="rec-ai-badge" style="margin-bottom:.6rem">✨ IA</div>
+        <div class="rec-add-title" id="ra-title"></div>
+        <div class="rec-add-reason" id="ra-reason"></div>
+        <div class="mm-actions-label" style="margin-top:1.25rem">Adicionar à lista</div>
+        <div class="mm-actions">
+          <button class="mm-btn" onclick="addRecToList('QUERO_VER')">🎬 Quero Ver</button>
+          <button class="mm-btn" onclick="addRecToList('ASSISTINDO')">▶ Assistindo</button>
+          <button class="mm-btn mm-btn-primary" onclick="addRecToList('ASSISTIDO')">✅ Já Assisti</button>
+          <button class="mm-btn" onclick="addRecToList('ABANDONEI')">✕ Abandonei</button>
+          <button class="mm-btn mm-btn-review" onclick="addRecAndReview()">✍️ Já vi — fazer review</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
+<div class="toast" id="toast"></div>
 <script src="app.js"></script>
 </body>
 </html>
