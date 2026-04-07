@@ -3,8 +3,7 @@
    app.js
 ============================== */
 
-const API = 'http://localhost:8080';
-
+const API = 'https://indicaai.onrender.com';
 let token = localStorage.getItem('iai_tk') || '';
 let me = {};
 let listData = [], curFilter = 'ALL';
